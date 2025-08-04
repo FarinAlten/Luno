@@ -1,12 +1,13 @@
 import SwiftUI
 import WebKit
 
-struct Tab: Identifiable, Equatable {
+struct Tab: Identifiable, Equatable, Hashable {
     let id = UUID()
     var urlString: String
 }
 
 struct BrowserView: View {
+    @Environment(\.horizontalSizeClass) var horizontalSizeClass
     @State private var tabs: [Tab] = [Tab(urlString: "https://www.apple.com")]
     @State private var selectedTab: Tab
     @State private var webViewNavigationPublishers: [UUID: WebViewNavigationPublisher] = [:]
@@ -18,6 +19,16 @@ struct BrowserView: View {
     }
 
     var body: some View {
+        Group {
+            if horizontalSizeClass == .compact {
+                iPhoneLayout
+            } else {
+                iPadLayout
+            }
+        }
+    }
+
+    private var iPadLayout: some View {
         NavigationSplitView {
             List {
                 Button(action: {
@@ -200,6 +211,119 @@ struct BrowserView: View {
                             .edgesIgnoringSafeArea(.bottom)
                     }
                 }
+            }
+        }
+    }
+
+    private var iPhoneLayout: some View {
+        VStack(spacing: 0) {
+            Picker("Tab", selection: $selectedTab) {
+                ForEach(tabs, id: \.id) { tab in
+                    Text(tab.urlString.prefix(20))
+                        .tag(tab)
+                }
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal)
+
+            if let publisher = webViewNavigationPublishers[selectedTab.id] {
+                HStack(spacing: 12) {
+                    Button {
+                        publisher.action = .goBack
+                    } label: {
+                        Image(systemName: "chevron.backward.circle.fill")
+                            .font(.title2)
+                            .foregroundColor(publisher.canGoBack ? .blue : .gray)
+                    }
+                    .disabled(!publisher.canGoBack)
+
+                    Button {
+                        publisher.action = .goForward
+                    } label: {
+                        Image(systemName: "chevron.forward.circle.fill")
+                            .font(.title2)
+                            .foregroundColor(publisher.canGoForward ? .blue : .gray)
+                    }
+                    .disabled(!publisher.canGoForward)
+
+                    TextField("Adresse eingeben", text: Binding(
+                        get: { selectedTab.urlString },
+                        set: { newValue in
+                            if let index = tabs.firstIndex(of: selectedTab) {
+                                tabs[index].urlString = newValue
+                                selectedTab = tabs[index]
+                            }
+                        }
+                    ), onCommit: {
+                        if let index = tabs.firstIndex(of: selectedTab) {
+                            let fixed = fixURL(tabs[index].urlString)
+                            tabs[index].urlString = fixed
+                            publisher.url = URL(string: fixed)
+                            publisher.action = .load
+                        }
+                    })
+                    .textFieldStyle(.roundedBorder)
+                    .autocapitalization(.none)
+                    .keyboardType(.URL)
+
+                    Button {
+                        if let index = tabs.firstIndex(of: selectedTab) {
+                            let fixed = fixURL(tabs[index].urlString)
+                            tabs[index].urlString = fixed
+                            publisher.url = URL(string: fixed)
+                            publisher.action = .load
+                        }
+                    } label: {
+                        Image(systemName: "arrow.clockwise.circle.fill")
+                            .font(.title2)
+                            .foregroundColor(.blue)
+                    }
+                }
+                .padding()
+            }
+
+            if let publisher = webViewNavigationPublishers[selectedTab.id], publisher.progress < 1.0 {
+                ProgressView(value: publisher.progress)
+                    .progressViewStyle(.linear)
+                    .padding(.horizontal)
+            }
+
+            if selectedTab.urlString == "about:settings" {
+                SettingsView()
+            } else if selectedTab.urlString == "about:blank" {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        Text("Favoriten")
+                            .font(.title2)
+                            .bold()
+                        HStack(spacing: 24) {
+                            ForEach(["apple.com", "google.com", "github.com"], id: \.self) { site in
+                                Button {
+                                    openTab(url: "https://\(site)")
+                                } label: {
+                                    VStack {
+                                        Image(systemName: "globe")
+                                            .resizable()
+                                            .scaledToFit()
+                                            .frame(width: 40, height: 40)
+                                            .padding(10)
+                                            .background(.thinMaterial)
+                                            .clipShape(Circle())
+                                        Text(site)
+                                            .font(.caption)
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.top, 8)
+                    }
+                    .padding()
+                }
+            } else if let url = URL(string: fixURL(selectedTab.urlString)),
+                      let publisher = webViewNavigationPublishers[selectedTab.id] {
+                WebView(url: url, navigationPublisher: publisher)
+                    .edgesIgnoringSafeArea(.bottom)
             }
         }
     }
