@@ -26,7 +26,7 @@ struct BrowserView: View {
                     webViewNavigationPublishers[homeTab.id] = WebViewNavigationPublisher()
                     selectedTab = homeTab
                 }) {
-                    Label("Startseite", systemImage: "house")
+                    Label("Startseite", systemImage: "house.fill")
                 }
 
                 Button(action: {
@@ -35,50 +35,31 @@ struct BrowserView: View {
                     webViewNavigationPublishers[settingsTab.id] = WebViewNavigationPublisher()
                     selectedTab = settingsTab
                 }) {
-                    Label("Einstellungen", systemImage: "gear")
+                    Label("Einstellungen", systemImage: "gearshape.fill")
                 }
             }
             .navigationTitle("Menü")
+            .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
         } detail: {
             VStack(spacing: 0) {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack {
-                        ForEach(tabs) { tab in
-                            Button(action: {
-                                selectedTab = tab
-                            }) {
-                                Text(tab.urlString)
-                                    .lineLimit(1)
-                                    .padding(8)
-                                    .background(tab == selectedTab ? Color.blue.opacity(0.2) : Color.clear)
-                                    .cornerRadius(8)
-                            }
-                        }
-                        Button(action: {
-                            let newTab = Tab(urlString: "about:blank")
-                            tabs.append(newTab)
-                            webViewNavigationPublishers[newTab.id] = WebViewNavigationPublisher()
-                            selectedTab = newTab
-                        }) {
-                            Image(systemName: "plus")
-                        }
-                    }
-                    .padding(.horizontal)
-                }
-
                 if let publisher = webViewNavigationPublishers[selectedTab.id] {
-                    HStack {
+                    HStack(spacing: 16) {
                         Button(action: {
                             publisher.action = .goBack
                         }) {
-                            Image(systemName: "chevron.backward")
+                            Image(systemName: "chevron.backward.circle.fill")
+                                .font(.title2)
+                                .foregroundColor(publisher.canGoBack ? .blue : .gray)
                         }
                         .disabled(!publisher.canGoBack)
 
                         Button(action: {
                             publisher.action = .goForward
                         }) {
-                            Image(systemName: "chevron.forward")
+                            Image(systemName: "chevron.forward.circle.fill")
+                                .font(.title2)
+                                .foregroundColor(publisher.canGoForward ? .blue : .gray)
                         }
                         .disabled(!publisher.canGoForward)
 
@@ -98,10 +79,14 @@ struct BrowserView: View {
                                 publisher.action = .load
                             }
                         })
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .textFieldStyle(.roundedBorder)
                         .keyboardType(.URL)
                         .autocapitalization(.none)
-                        .padding(.horizontal)
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 10)
+                        .background(.ultraThinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .shadow(radius: 2)
 
                         Button(action: {
                             if let index = tabs.firstIndex(of: selectedTab) {
@@ -111,11 +96,66 @@ struct BrowserView: View {
                                 publisher.action = .load
                             }
                         }) {
-                            Image(systemName: "arrow.clockwise")
+                            Image(systemName: "arrow.clockwise.circle.fill")
+                                .font(.title2)
+                                .foregroundColor(.blue)
                         }
                     }
-                    .padding()
-                    .background(Color(.secondarySystemBackground))
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 10)
+                    .background(.ultraThinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .shadow(radius: 2)
+                    .padding(.horizontal)
+                    .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
+                    .toolbarBackground(.visible, for: .navigationBar)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarLeading) {
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 12) {
+                                    ForEach(tabs) { tab in
+                                        Button(action: {
+                                            withAnimation {
+                                                selectedTab = tab
+                                            }
+                                        }) {
+                                            HStack(spacing: 6) {
+                                                Image(systemName: selectedTab == tab ? "circle.fill" : "circle")
+                                                    .font(.caption2)
+                                                    .foregroundColor(selectedTab == tab ? .blue : .gray)
+                                                Text(tab.urlString)
+                                                    .lineLimit(1)
+                                                    .font(.subheadline)
+                                                    .foregroundColor(selectedTab == tab ? .blue : .primary)
+                                            }
+                                            .padding(.vertical, 6)
+                                            .padding(.horizontal, 12)
+                                            .background(
+                                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                                    .fill(selectedTab == tab ? Color.blue.opacity(0.2) : Color.clear)
+                                                    .animation(.easeInOut(duration: 0.3), value: selectedTab)
+                                            )
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+
+                                    Button(action: {
+                                        let newTab = Tab(urlString: "about:blank")
+                                        tabs.append(newTab)
+                                        webViewNavigationPublishers[newTab.id] = WebViewNavigationPublisher()
+                                        withAnimation {
+                                            selectedTab = newTab
+                                        }
+                                    }) {
+                                        Image(systemName: "plus.circle.fill")
+                                            .font(.title2)
+                                            .foregroundColor(.blue)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                        }
+                    }
 
                     if publisher.progress < 1.0 {
                         ProgressView(value: publisher.progress)
@@ -125,6 +165,36 @@ struct BrowserView: View {
 
                     if selectedTab.urlString == "about:settings" {
                         SettingsView()
+                    } else if selectedTab.urlString == "about:blank" {
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 20) {
+                                Text("Favoriten")
+                                    .font(.title2)
+                                    .bold()
+                                HStack(spacing: 24) {
+                                    ForEach(["apple.com", "google.com", "github.com"], id: \.self) { site in
+                                        Button {
+                                            openTab(url: "https://\(site)")
+                                        } label: {
+                                            VStack {
+                                                Image(systemName: "globe")
+                                                    .resizable()
+                                                    .scaledToFit()
+                                                    .frame(width: 40, height: 40)
+                                                    .padding(10)
+                                                    .background(.thinMaterial)
+                                                    .clipShape(Circle())
+                                                Text(site)
+                                                    .font(.caption)
+                                            }
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                                .padding(.top, 8)
+                            }
+                            .padding()
+                        }
                     } else if let url = URL(string: fixURL(selectedTab.urlString)) {
                         WebView(url: url, navigationPublisher: publisher)
                             .edgesIgnoringSafeArea(.bottom)
@@ -135,10 +205,17 @@ struct BrowserView: View {
     }
 
     func fixURL(_ input: String) -> String {
-        if input == "about:settings" {
+        if input == "about:settings" || input == "about:blank" {
             return input
         }
         return input.starts(with: "http") ? input : "https://\(input)"
+    }
+
+    private func openTab(url: String) {
+        let newTab = Tab(urlString: url)
+        tabs.append(newTab)
+        webViewNavigationPublishers[newTab.id] = WebViewNavigationPublisher()
+        selectedTab = newTab
     }
 }
 
